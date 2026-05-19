@@ -28,14 +28,23 @@ ASAN_FLAGS    := -g3 -O1 -fsanitize=address -fno-omit-frame-pointer
 UBSAN_FLAGS   := -g3 -O1 -fsanitize=undefined -fno-omit-frame-pointer
 SANIT_FLAGS   := -g3 -O1 -fsanitize=address,undefined -fno-omit-frame-pointer
 
-SRC      := test.c
-HDR      := bitstream.h
+# Includes: raiz del proyecto (bitstream.h) + directorio de tests (test.h)
+INCLUDES := -I. -Itests
 
-BIN_DBG  := test_debug
-BIN_REL  := test_release
-BIN_ASAN := test_asan
-BIN_UB   := test_ubsan
-BIN_SAN  := test_sanitize
+# Fuentes de test (añadir nuevos test_*.c aqui)
+TEST_DIR := tests
+TEST_SRC := $(TEST_DIR)/run_all.c          \
+            $(TEST_DIR)/test_reader.c      \
+            $(TEST_DIR)/test_writer.c      \
+            $(TEST_DIR)/test_regression.c  \
+            $(TEST_DIR)/test_integration.c
+HDR      := bitstream.h $(TEST_DIR)/test.h
+
+BIN_DBG  := $(TEST_DIR)/test_debug
+BIN_REL  := $(TEST_DIR)/test_release
+BIN_ASAN := $(TEST_DIR)/test_asan
+BIN_UB   := $(TEST_DIR)/test_ubsan
+BIN_SAN  := $(TEST_DIR)/test_sanitize
 
 ALL_BINS := $(BIN_DBG) $(BIN_REL) $(BIN_ASAN) $(BIN_UB) $(BIN_SAN)
 
@@ -46,24 +55,24 @@ ALL_BINS := $(BIN_DBG) $(BIN_REL) $(BIN_ASAN) $(BIN_UB) $(BIN_SAN)
 all: debug
 
 debug: $(BIN_DBG)
-$(BIN_DBG): $(SRC) $(HDR)
-	$(CC) $(CSTD) $(WARNINGS) $(DEBUG_FLAGS) -o $@ $(SRC)
+$(BIN_DBG): $(TEST_SRC) $(HDR)
+	$(CC) $(CSTD) $(WARNINGS) $(INCLUDES) $(DEBUG_FLAGS) -o $@ $(TEST_SRC)
 
 release: $(BIN_REL)
-$(BIN_REL): $(SRC) $(HDR)
-	$(CC) $(CSTD) $(WARNINGS) $(RELEASE_FLAGS) -o $@ $(SRC)
+$(BIN_REL): $(TEST_SRC) $(HDR)
+	$(CC) $(CSTD) $(WARNINGS) $(INCLUDES) $(RELEASE_FLAGS) -o $@ $(TEST_SRC)
 
 asan: $(BIN_ASAN)
-$(BIN_ASAN): $(SRC) $(HDR)
-	$(CC) $(CSTD) $(WARNINGS) $(ASAN_FLAGS) -o $@ $(SRC)
+$(BIN_ASAN): $(TEST_SRC) $(HDR)
+	$(CC) $(CSTD) $(WARNINGS) $(INCLUDES) $(ASAN_FLAGS) -o $@ $(TEST_SRC)
 
 ubsan: $(BIN_UB)
-$(BIN_UB): $(SRC) $(HDR)
-	$(CC) $(CSTD) $(WARNINGS) $(UBSAN_FLAGS) -o $@ $(SRC)
+$(BIN_UB): $(TEST_SRC) $(HDR)
+	$(CC) $(CSTD) $(WARNINGS) $(INCLUDES) $(UBSAN_FLAGS) -o $@ $(TEST_SRC)
 
 sanitize: $(BIN_SAN)
-$(BIN_SAN): $(SRC) $(HDR)
-	$(CC) $(CSTD) $(WARNINGS) $(SANIT_FLAGS) -o $@ $(SRC)
+$(BIN_SAN): $(TEST_SRC) $(HDR)
+	$(CC) $(CSTD) $(WARNINGS) $(INCLUDES) $(SANIT_FLAGS) -o $@ $(TEST_SRC)
 
 # ---- Targets de ejecucion ---------------------------------------------------
 
