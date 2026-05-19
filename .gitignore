@@ -1,1 +1,4 @@
-.elf
+test_sanitize
+tests
+test_debug
+test_release
