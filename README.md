@@ -1,209 +1,208 @@
-````markdown
 # bitstream.h
 
-`bitstream.h` es una librería de C de alto rendimiento y estilo **header-only** diseñada para la manipulación eficiente de flujos de bits arbitrarios.
+`bitstream.h` is a high-performance, **header-only** C library designed for efficient manipulation of arbitrary bit streams.
 
 ---
 
-## ¿Por qué `bitstream.h`?
+## Why `bitstream.h`?
 
-El estándar de I/O de C trabaja en bloques de 8 bits (*byte-aligned*). Sin embargo, la mayoría de los formatos de datos modernos —como códecs de audio/video, protocolos de red, algoritmos de compresión como DEFLATE o codificación Huffman— almacenan información en longitudes no alineadas (por ejemplo: 3, 5 o 12 bits).
+C's standard I/O works in 8-bit byte-aligned blocks. However, most modern data formats — such as audio/video codecs, network protocols, and compression algorithms like DEFLATE or Huffman coding — store information in non-aligned widths (e.g. 3, 5, or 12 bits).
 
-Esta librería proporciona los primitivos de bajo nivel necesarios para extraer y empaquetar estos datos, evitando el overhead de alineación y minimizando el acceso a memoria mediante una arquitectura de **bit-cache (acumulador) de 64 bits**.
-
----
-
-# Roadmap de Desarrollo
-
-El proyecto está estructurado en cuatro fases iterativas, asegurando que cada componente sea robusto y verificable antes de avanzar hacia optimizaciones complejas.
+This library provides the low-level primitives needed to extract and pack such data, avoiding alignment overhead and minimizing memory access through a **64-bit bit-cache (accumulator) architecture**.
 
 ---
 
-## Fase 1: El Lector (MSB-First)
+# Development Roadmap
 
-### Objetivo
+The project is structured in four iterative phases, ensuring each component is robust and verifiable before moving on to more complex optimizations.
 
-Construir el motor base de lectura. Implementar la extracción de bits desde un buffer de memoria, manejando el *refill* automático del caché.
+---
 
-### Funciones clave
+## Phase 1: The Reader (MSB-First)
+
+### Goal
+
+Build the core read engine. Implement bit extraction from a memory buffer, handling automatic cache refill.
+
+### Key functions
 
 ```c
 bs_reader_init(bs_reader_t *bs, const uint8_t *data, size_t size);
-````
+```
 
-Inicializa el estado del lector (puntero, tamaño y caché).
+Initializes the reader state (pointer, size, and cache).
 
 ```c
 _bs_reader_refill(bs_reader_t *bs);
 ```
 
-Función interna que carga bytes desde RAM al caché cuando este cae por debajo de 56 bits.
+Internal function that loads bytes from RAM into the cache when it drops below 56 bits.
 
 ```c
 bs_read_bits(bs_reader_t *bs, int n);
 ```
 
-Extrae `n` bits del flujo.
+Extracts `n` bits from the stream.
 
 ```c
 bs_read_bit(bs_reader_t *bs);
 ```
 
-Alias optimizado para lectura de 1 bit.
+Optimized alias for reading 1 bit.
 
 ```c
 bs_reader_bits_left(const bs_reader_t *bs);
 ```
 
-Calcula la cantidad de bits disponibles.
+Returns the number of bits remaining in the stream.
 
 ```c
 bs_reader_eof(const bs_reader_t *bs);
 ```
 
-Verifica el fin del flujo.
+Checks whether the end of the stream has been reached.
 
 ---
 
-## Fase 2: El Escritor (MSB-First)
+## Phase 2: The Writer (MSB-First)
 
-### Objetivo
+### Goal
 
-Implementar la contraparte del lector: escritura eficiente en buffers, manejando el desbordamiento del caché hacia la RAM.
+Implement the counterpart to the reader: efficient writing into buffers, handling cache overflow back to RAM.
 
-### Funciones clave
+### Key functions
 
 ```c
 bs_writer_init(bs_writer_t *bs, uint8_t *data, size_t size);
 ```
 
-Inicializa el buffer destino.
+Initializes the destination buffer.
 
 ```c
 _bs_writer_dump(bs_writer_t *bs);
 ```
 
-Vuelca el caché a RAM cuando existen 8 o más bits acumulados.
+Flushes the cache to RAM when 8 or more bits have accumulated.
 
 ```c
 bs_write_bits(bs_writer_t *bs, uint32_t value, int n);
 ```
 
-Empaqueta `n` bits en el acumulador.
+Packs `n` bits into the accumulator.
 
 ```c
 bs_write_bit(bs_writer_t *bs, uint8_t value);
 ```
 
-Alias optimizado para escritura de 1 bit.
+Optimized alias for writing 1 bit.
 
 ```c
 bs_writer_flush(bs_writer_t *bs);
 ```
 
-Alinea a byte mediante relleno con ceros y realiza el volcado final.
+Byte-aligns the output by padding with zeros and performs the final flush.
 
 ```c
 bs_writer_bytes_written(const bs_writer_t *bs);
 ```
 
-Retorna el número real de bytes escritos.
+Returns the actual number of bytes written.
 
 ---
 
-## Fase 3: Versatilidad (Lookahead & LSB-First)
+## Phase 3: Versatility (Lookahead & LSB-First)
 
-### Objetivo
+### Goal
 
-Preparar la librería para códecs y protocolos reales que requieren inspeccionar el flujo sin consumir bits o utilizar orden LSB-first.
+Prepare the library for real-world codecs and protocols that require inspecting the stream without consuming bits, or that use LSB-first bit ordering.
 
-### Funciones clave
+### Key functions
 
 ```c
 bs_peek_bits(bs_reader_t *bs, int n);
 ```
 
-Lee bits sin avanzar el puntero. Necesario para parsing de árboles Huffman y lookahead.
+Reads bits without advancing the stream pointer. Needed for Huffman tree parsing and lookahead.
 
 ```c
 bs_read_bits_lsb(bs_reader_t *bs, int n);
 bs_write_bits_lsb(bs_writer_t *bs, ...);
 ```
 
-Variantes para protocolos LSB-first.
+Variants for LSB-first protocols.
 
 ```c
 bs_writer_set_order(bs_writer_t *bs, bool lsb);
 ```
 
-Selector de modo MSB/LSB.
+MSB/LSB mode selector.
 
 ---
 
-## Fase 4: Robustness & Fast-Paths
+## Phase 4: Robustness & Fast-Paths
 
-### Objetivo
+### Goal
 
-Optimización extrema para entornos de producción, eliminando validaciones redundantes en *hot loops*.
+Extreme optimization for production environments, removing redundant validation checks in hot loops.
 
-### Funciones clave
+### Key functions
 
 ```c
 bs_read_bits_fast(bs_reader_t *bs, int n);
 ```
 
-Versión sin validación de `_refill()`. Asume que el buffer contiene suficientes datos.
+Version without `_refill()` validation. Assumes the buffer holds sufficient data.
 
 ```c
 bs_write_bits_fast(bs_writer_t *bs, uint32_t value, int n);
 ```
 
-Versión sin validación de overflow. Asume capacidad suficiente en el buffer.
+Version without overflow validation. Assumes sufficient buffer capacity.
 
 ```c
 bs_align(bs_writer_t *bs);
 ```
 
-Fuerza alineación al siguiente byte mediante relleno.
+Forces alignment to the next byte boundary via padding.
 
 ---
 
-# Filosofía de Diseño
+# Design Philosophy
 
 ## Header-only
 
-Integración directa en cualquier proyecto.
+Drop-in integration with any project.
 
-Simplemente copia el archivo `bitstream.h` y úsalo, sin dependencias externas ni compilación separada.
+Simply copy `bitstream.h` and use it — no external dependencies, no separate compilation step.
 
 ---
 
 ## Zero-cost Abstractions
 
-Todas las funciones están declaradas como:
+All functions are declared as:
 
 ```c
 static inline
 ```
 
-Esto permite al compilador integrar el código directamente en el lugar de llamada, eliminando el costo de invocación de funciones.
+This allows the compiler to inline the code directly at the call site, eliminating function call overhead entirely.
 
 ---
 
 ## Lazy Evaluation
 
-La memoria RAM solo se accede cuando:
+RAM is only accessed when:
 
-* El acumulador de 64 bits está vacío (lector).
-* El acumulador está lleno (escritor).
+* The 64-bit accumulator is empty (reader).
+* The accumulator is full (writer).
 
-Esto minimiza accesos a memoria y mejora el rendimiento en workloads intensivos.
+This minimizes memory accesses and improves performance under intensive workloads.
 
 ---
 
-## C Estándar
+## Standard C
 
-Compatibilidad total con:
+Full compatibility with:
 
 * C99
 * `stdint.h`
@@ -211,10 +210,7 @@ Compatibilidad total con:
 
 ---
 
-# Requisitos
+# Requirements
 
-* Compilador compatible con C99 o superior.
-* Arquitectura con soporte para tipos de 64 bits (`uint64_t` requerido para el caché).
-
-```
-```
+* A C99-compatible compiler or newer.
+* Architecture with 64-bit type support (`uint64_t` required for the cache).
