@@ -1,6 +1,5 @@
 .cache/
 compile_commands.json
 test_sanitize
-tests
 test_debug
 test_release
