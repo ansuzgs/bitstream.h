@@ -83,3 +83,48 @@ Decoded readings:
 
 Round-trip verified: all 4 readings match.
 ```
+
+## huffman_decode.c
+ 
+Encodes and decodes a short message with a prefix-free Huffman code. Demonstrates **peek/skip lookahead**: `bs_peek_bits()` inspects a window of bits without consuming them, a table scan identifies the matching code, and `bs_skip_bits()` advances by exactly the code length. This is the pattern used by real codecs (DEFLATE, JPEG, MP3).
+ 
+The code table assigns shorter codes to more frequent symbols:
+ 
+```
+ Code    Bits  Symbol
+──────  ─────  ──────
+ 0        1    'e'         (most frequent → shortest code)
+ 10       2    't'
+ 110      3    'a'
+ 1110     4    ' '         (space)
+ 11110    5    'h'
+ 111110   6    'r'
+ 111111   6    '\0'        (end-of-message sentinel)
+```
+ 
+The message `"the rat ate the tea"` (19 ASCII bytes) encodes into 8 bytes on the wire — 42% of the original size.
+ 
+Sample output:
+ 
+```
+Encoding: "the rat ate the tea"
+ 
+  Original:  19 bytes (ASCII)
+  Encoded:   8 bytes on wire
+  Ratio:     42%
+ 
+  Raw bytes: BC EF B5 DA 75 E7 4D F8
+ 
+Decoding with peek/skip:
+  [ 64 bits left] peek → 't'
+  [ 62 bits left] peek → 'h'
+  [ 57 bits left] peek → 'e'
+  [ 56 bits left] peek → ' '
+  ...
+  [  9 bits left] peek → sentinel (end)
+ 
+Decoded: "the rat ate the tea"
+ 
+Round-trip verified: output matches original.
+```
+

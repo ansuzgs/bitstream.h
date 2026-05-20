@@ -5,3 +5,4 @@ test_debug
 test_release
 examples/sensor_protocol
 examples/decode_mp3_header
+examples/huffman_decode
