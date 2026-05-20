@@ -48,9 +48,15 @@ BIN_SAN  := $(TEST_DIR)/test_sanitize
 
 ALL_BINS := $(BIN_DBG) $(BIN_REL) $(BIN_ASAN) $(BIN_UB) $(BIN_SAN)
 
+# Ejemplos (añadir nuevos aqui)
+EXAMPLES_DIR := examples
+EXAMPLES_SRC := $(wildcard $(EXAMPLES_DIR)/*.c)
+EXAMPLES_BIN := $(EXAMPLES_SRC:.c=)
+ALL_BINS     += $(EXAMPLES_BIN)
+
 # ---- Targets de compilacion ------------------------------------------------
 
-.PHONY: all debug release asan ubsan sanitize test test-all clean help
+.PHONY: all debug release asan ubsan sanitize test test-all examples clean help
 
 all: debug
 
@@ -73,6 +79,13 @@ $(BIN_UB): $(TEST_SRC) $(HDR)
 sanitize: $(BIN_SAN)
 $(BIN_SAN): $(TEST_SRC) $(HDR)
 	$(CC) $(CSTD) $(WARNINGS) $(INCLUDES) $(SANIT_FLAGS) -o $@ $(TEST_SRC)
+
+# ---- Ejemplos ---------------------------------------------------------------
+ 
+examples: $(EXAMPLES_BIN)
+ 
+$(EXAMPLES_DIR)/%: $(EXAMPLES_DIR)/%.c bitstream.h
+	$(CC) $(CSTD) $(WARNINGS) -I. $(DEBUG_FLAGS) -o $@ $<
 
 # ---- Targets de ejecucion ---------------------------------------------------
 
@@ -110,4 +123,5 @@ help:
 	@echo "  make sanitize   Compila con ASAN + UBSAN"
 	@echo "  make test       Compila debug y ejecuta"
 	@echo "  make test-all   Ejecuta en debug, release y sanitizer"
+	@echo "  make examples   Compila los ejemplos en examples/"
 	@echo "  make clean      Elimina binarios"
