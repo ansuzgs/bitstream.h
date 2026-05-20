@@ -119,7 +119,7 @@ make clean         # remove all binaries
 
 - [x] **Phase 1** — Reader (MSB-first): bit extraction, automatic cache refill, EOF tracking
 - [x] **Phase 2** — Writer (MSB-first): bit packing, flush/padding, overflow detection
-- [ ] **Phase 3** — Lookahead (`bs_peek_bits`) and LSB-first read/write variants
+- [x] **Phase 3** — Lookahead (`bs_peek_bits`) and LSB-first read/write variants
 - [ ] **Phase 4** — Fast-paths: unchecked read/write for hot loops, byte alignment
 
 ## License

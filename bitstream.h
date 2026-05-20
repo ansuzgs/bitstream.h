@@ -32,6 +32,8 @@ static inline uint32_t bs_read_bits(bs_reader_t *bs, unsigned int n);
 static inline void bs_write_bit(bs_writer_t *bs, uint8_t value);
 static inline void bs_write_bits(bs_writer_t *bs, uint32_t value, unsigned int n);
 
+static inline uint32_t bs_peek_bits(bs_reader_t *bs, unsigned int n);
+
 static inline bool bs_reader_eof(const bs_reader_t *bs);
 static inline size_t bs_reader_bits_left(const bs_reader_t *bs);
 static inline void bs_writer_flush(bs_writer_t *bs);
@@ -95,6 +97,29 @@ static inline void bs_write_bits(bs_writer_t *bs, uint32_t value, unsigned int n
 	if (bs->bits_in_cache >= 8) {
 		_bs_writer_dump(bs);
 	}
+}
+
+static inline uint32_t bs_peek_bits(bs_reader_t *bs, unsigned int n) {
+	if (n == 0) return 0;
+	_bs_reader_refill(bs);
+
+	if (bs->bits_in_cache < n) return 0;
+
+	uint32_t result = (uint32_t)((bs->bit_cache >> (bs->bits_in_cache - n)) & ((1ULL << n) - 1));
+
+	return result;
+}
+
+static inline void bs_skip_bits(bs_reader_t *bs, unsigned int n) {
+	if (n == 0) return;
+	_bs_reader_refill(bs);
+
+	if (bs->bits_in_cache < n) {
+		bs->bits_in_cache = 0;
+		return;
+	}
+
+	bs->bits_in_cache -= n;
 }
 
 static inline bool bs_reader_eof(const bs_reader_t *bs) {
