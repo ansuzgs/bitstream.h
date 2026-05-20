@@ -1,216 +1,127 @@
 # bitstream.h
 
-`bitstream.h` is a high-performance, **header-only** C library designed for efficient manipulation of arbitrary bit streams.
+High-performance, header-only C99 library for reading and writing arbitrary-width bit streams.
 
----
+## Why?
 
-## Why `bitstream.h`?
+C's standard I/O works in byte-aligned blocks. Most real-world binary formats — audio/video codecs, network protocols, compression algorithms like DEFLATE, Huffman coding — store data in non-aligned widths (3, 5, 12 bits, etc.).
 
-C's standard I/O works in 8-bit byte-aligned blocks. However, most modern data formats — such as audio/video codecs, network protocols, and compression algorithms like DEFLATE or Huffman coding — store information in non-aligned widths (e.g. 3, 5, or 12 bits).
+`bitstream.h` provides the low-level primitives to extract and pack these fields efficiently, using a 64-bit accumulator that minimizes memory access and avoids alignment overhead.
 
-This library provides the low-level primitives needed to extract and pack such data, avoiding alignment overhead and minimizing memory access through a **64-bit bit-cache (accumulator) architecture**.
+## Quick Start
 
----
-
-# Development Roadmap
-
-The project is structured in four iterative phases, ensuring each component is robust and verifiable before moving on to more complex optimizations.
-
----
-
-## Phase 1: The Reader (MSB-First)
-
-### Goal
-
-Build the core read engine. Implement bit extraction from a memory buffer, handling automatic cache refill.
-
-### Key functions
+Copy `bitstream.h` into your project. No build step, no dependencies.
 
 ```c
-bs_reader_init(bs_reader_t *bs, const uint8_t *data, size_t size);
-```
+#include "bitstream.h"
 
-Initializes the reader state (pointer, size, and cache).
+/* Read 4 bits from a buffer */
+uint8_t data[] = { 0xA5 };          /* 1010 0101 */
+bs_reader_t r;
+bs_reader_init(&r, data, sizeof(data));
+
+uint32_t hi = bs_read_bits(&r, 4);  /* 10 (0b1010) */
+uint32_t lo = bs_read_bits(&r, 4);  /*  5 (0b0101) */
+```
 
 ```c
-_bs_reader_refill(bs_reader_t *bs);
+/* Write variable-width fields into a buffer */
+uint8_t buf[4] = {0};
+bs_writer_t w;
+bs_writer_init(&w, buf, sizeof(buf));
+
+bs_write_bits(&w, 0x1F, 5);    /* 5 bits  */
+bs_write_bits(&w, 0xAB, 8);    /* 8 bits  */
+bs_write_bits(&w, 1, 1);       /* 1 bit   */
+bs_writer_flush(&w);            /* pad to byte boundary */
+
+size_t bytes = bs_writer_bytes_written(&w);
 ```
 
-Internal function that loads bytes from RAM into the cache when it drops below 56 bits.
+## API Reference
 
-```c
-bs_read_bits(bs_reader_t *bs, int n);
+### Reader
+
+| Function | Description |
+|---|---|
+| `bs_reader_init(bs, data, size)` | Initialize reader over a memory buffer |
+| `bs_read_bits(bs, n)` | Extract `n` bits (1–32) from the stream |
+| `bs_read_bit(bs)` | Extract a single bit |
+| `bs_reader_bits_left(bs)` | Bits remaining in the stream |
+| `bs_reader_eof(bs)` | `true` when the stream is exhausted |
+
+### Writer
+
+| Function | Description |
+|---|---|
+| `bs_writer_init(bs, data, size)` | Initialize writer over a memory buffer |
+| `bs_write_bits(bs, value, n)` | Pack `n` bits (1–32) into the stream |
+| `bs_write_bit(bs, value)` | Pack a single bit |
+| `bs_writer_flush(bs)` | Pad to byte boundary and flush |
+| `bs_writer_bytes_written(bs)` | Bytes written so far |
+
+The writer sets `bs->overflow = true` if the output buffer fills up. Already-written bytes are never corrupted.
+
+## Examples
+
+The `examples/` directory contains complete, compilable programs:
+
+| Example | Description |
+|---|---|
+| `decode_mp3_header.c` | Parse a 32-bit MP3 frame header into its 13 fields |
+| `sensor_protocol.c` | Encode/decode a compact IoT sensor packet (full round-trip) |
+
+```
+make examples
+./examples/decode_mp3_header
+./examples/sensor_protocol
 ```
 
-Extracts `n` bits from the stream.
+## Building & Testing
 
-```c
-bs_read_bit(bs_reader_t *bs);
+```
+make test          # debug build (asserts enabled), run tests
+make test-all      # run tests in debug, release (-O2), and sanitizer modes
+make examples      # compile the examples
+make clean         # remove all binaries
 ```
 
-Optimized alias for reading 1 bit.
+`make test-all` compiles and runs the full suite three times: debug (`-O0`, asserts active), release (`-O2`, `-DNDEBUG`), and with AddressSanitizer + UBSanitizer. This catches undefined behavior that only manifests under optimization.
 
-```c
-bs_reader_bits_left(const bs_reader_t *bs);
+## Project Structure
+
+```
+├── bitstream.h                   # The library (single header)
+├── Makefile
+├── tests/
+│   ├── test.h                    # Minimal test harness
+│   ├── run_all.c                 # Test runner
+│   ├── test_reader.c             # Phase 1: reader tests
+│   ├── test_writer.c             # Phase 2: writer tests
+│   ├── test_regression.c         # Bug regression tests
+│   └── test_integration.c        # End-to-end scenarios
+└── examples/
+    ├── decode_mp3_header.c
+    └── sensor_protocol.c
 ```
 
-Returns the number of bits remaining in the stream.
+## Design
 
-```c
-bs_reader_eof(const bs_reader_t *bs);
-```
+**Header-only** — copy one file, done. No build system integration needed.
 
-Checks whether the end of the stream has been reached.
+**Zero-cost abstractions** — every function is `static inline`, so the compiler inlines them at the call site with no function-call overhead.
 
----
+**Lazy memory access** — RAM is only touched when the 64-bit accumulator is empty (reader) or full (writer), minimizing cache pressure in tight loops.
 
-## Phase 2: The Writer (MSB-First)
+**Standard C99** — depends only on `stdint.h`, `stddef.h`, and `stdbool.h`. Works with GCC, Clang, MSVC, and any conforming compiler. Requires `uint64_t` support.
 
-### Goal
+## Roadmap
 
-Implement the counterpart to the reader: efficient writing into buffers, handling cache overflow back to RAM.
+- [x] **Phase 1** — Reader (MSB-first): bit extraction, automatic cache refill, EOF tracking
+- [x] **Phase 2** — Writer (MSB-first): bit packing, flush/padding, overflow detection
+- [ ] **Phase 3** — Lookahead (`bs_peek_bits`) and LSB-first read/write variants
+- [ ] **Phase 4** — Fast-paths: unchecked read/write for hot loops, byte alignment
 
-### Key functions
+## License
 
-```c
-bs_writer_init(bs_writer_t *bs, uint8_t *data, size_t size);
-```
-
-Initializes the destination buffer.
-
-```c
-_bs_writer_dump(bs_writer_t *bs);
-```
-
-Flushes the cache to RAM when 8 or more bits have accumulated.
-
-```c
-bs_write_bits(bs_writer_t *bs, uint32_t value, int n);
-```
-
-Packs `n` bits into the accumulator.
-
-```c
-bs_write_bit(bs_writer_t *bs, uint8_t value);
-```
-
-Optimized alias for writing 1 bit.
-
-```c
-bs_writer_flush(bs_writer_t *bs);
-```
-
-Byte-aligns the output by padding with zeros and performs the final flush.
-
-```c
-bs_writer_bytes_written(const bs_writer_t *bs);
-```
-
-Returns the actual number of bytes written.
-
----
-
-## Phase 3: Versatility (Lookahead & LSB-First)
-
-### Goal
-
-Prepare the library for real-world codecs and protocols that require inspecting the stream without consuming bits, or that use LSB-first bit ordering.
-
-### Key functions
-
-```c
-bs_peek_bits(bs_reader_t *bs, int n);
-```
-
-Reads bits without advancing the stream pointer. Needed for Huffman tree parsing and lookahead.
-
-```c
-bs_read_bits_lsb(bs_reader_t *bs, int n);
-bs_write_bits_lsb(bs_writer_t *bs, ...);
-```
-
-Variants for LSB-first protocols.
-
-```c
-bs_writer_set_order(bs_writer_t *bs, bool lsb);
-```
-
-MSB/LSB mode selector.
-
----
-
-## Phase 4: Robustness & Fast-Paths
-
-### Goal
-
-Extreme optimization for production environments, removing redundant validation checks in hot loops.
-
-### Key functions
-
-```c
-bs_read_bits_fast(bs_reader_t *bs, int n);
-```
-
-Version without `_refill()` validation. Assumes the buffer holds sufficient data.
-
-```c
-bs_write_bits_fast(bs_writer_t *bs, uint32_t value, int n);
-```
-
-Version without overflow validation. Assumes sufficient buffer capacity.
-
-```c
-bs_align(bs_writer_t *bs);
-```
-
-Forces alignment to the next byte boundary via padding.
-
----
-
-# Design Philosophy
-
-## Header-only
-
-Drop-in integration with any project.
-
-Simply copy `bitstream.h` and use it — no external dependencies, no separate compilation step.
-
----
-
-## Zero-cost Abstractions
-
-All functions are declared as:
-
-```c
-static inline
-```
-
-This allows the compiler to inline the code directly at the call site, eliminating function call overhead entirely.
-
----
-
-## Lazy Evaluation
-
-RAM is only accessed when:
-
-* The 64-bit accumulator is empty (reader).
-* The accumulator is full (writer).
-
-This minimizes memory accesses and improves performance under intensive workloads.
-
----
-
-## Standard C
-
-Full compatibility with:
-
-* C99
-* `stdint.h`
-* `stddef.h`
-
----
-
-# Requirements
-
-* A C99-compatible compiler or newer.
-* Architecture with 64-bit type support (`uint64_t` required for the cache).
+[Choose a license and add it here.]
