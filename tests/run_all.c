@@ -17,6 +17,7 @@ void suite_writer(void);
 void suite_regression(void);
 void suite_integration(void);
 void suite_peek_skip(void);
+void suite_lsb(void);
 
 int main(void) {
 	printf("bitstream.h - test suite\n");
@@ -27,6 +28,7 @@ int main(void) {
 	suite_regression();
 	suite_integration();
 	suite_peek_skip();
+	suite_lsb();
 
 	/* Summary */
 	printf("========================\n\n");

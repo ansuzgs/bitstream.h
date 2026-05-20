@@ -38,6 +38,7 @@ static inline void bs_skip_bits(bs_reader_t *bs, unsigned int n);
 static inline uint32_t bs_read_bits_lsb(bs_reader_t *bs, unsigned int n);
 static inline void bs_write_bits_lsb(bs_writer_t *bs, uint32_t value, unsigned int n);
 static inline uint32_t bs_peek_bits_lsb(bs_reader_t *bs, unsigned int n);
+static inline void bs_skip_bits_lsb(bs_reader_t *bs, unsigned int n);
 static inline void bs_writer_flush_lsb(bs_writer_t *bs);
 
 static inline bool bs_reader_eof(const bs_reader_t *bs);
@@ -137,10 +138,9 @@ static inline uint32_t bs_read_bits_lsb(bs_reader_t *bs, unsigned int n) {
 
 	if (bs->bits_in_cache < n) return 0;
 
-	bs->bits_in_cache -= n;
-
 	uint32_t result = (uint32_t)(bs->bit_cache & ((1ULL << n) - 1));
 	bs->bit_cache >>= n;
+	bs->bits_in_cache -= n;
 
 	return result;
 }
@@ -169,6 +169,20 @@ static inline uint32_t bs_peek_bits_lsb(bs_reader_t *bs, unsigned int n) {
 
 	uint32_t result = (uint32_t)(bs->bit_cache & ((1ULL << n) - 1));
 	return result;
+}
+
+static inline void bs_skip_bits_lsb(bs_reader_t *bs, unsigned int n) {
+	if (n == 0) return;
+	_bs_reader_refill_lsb(bs);
+
+	if (bs->bits_in_cache < n) {
+		bs->bits_in_cache = 0;
+		bs->bit_cache = 0;
+		return;
+	}
+
+	bs->bit_cache >>= n;
+	bs->bits_in_cache -= n;
 }
 
 static inline void bs_writer_flush_lsb(bs_writer_t *bs) {
