@@ -124,4 +124,4 @@ make clean         # remove all binaries
 
 ## License
 
-[Choose a license and add it here.]
+MIT
