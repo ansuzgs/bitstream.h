@@ -521,7 +521,7 @@ static void test_lsb_deflate_style_decode(void) {
 /* ================================================================== */
 
 void suite_lsb(void) {
-    printf("=== Phase 5: LSB-First ===\n");
+    printf("=== Phase 3: LSB-First ===\n");
 
     /* Reader */
     RUN_TEST(test_lsb_read_known_answer);

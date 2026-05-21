@@ -40,7 +40,9 @@ TEST_SRC := $(TEST_DIR)/run_all.c          \
             $(TEST_DIR)/test_regression.c  \
             $(TEST_DIR)/test_integration.c \
             $(TEST_DIR)/test_peek_skip.c   \
-            $(TEST_DIR)/test_lsb.c
+            $(TEST_DIR)/test_lsb.c		   \
+            $(TEST_DIR)/test_phase4.c
+
 HDR      := bitstream.h $(TEST_DIR)/test.h
 
 BIN_DBG  := $(TEST_DIR)/test_debug
