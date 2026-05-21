@@ -9,6 +9,7 @@
 #   make sanitize   Compila con ASAN + UBSAN combinados
 #   make test       Compila en debug y ejecuta los tests
 #   make test-all   Ejecuta los tests en debug, release y con sanitizers
+#   make examples   Compila los ejemplos en examples/
 #   make clean      Elimina todos los binarios generados
 # ===========================================================================
 

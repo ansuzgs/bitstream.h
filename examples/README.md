@@ -128,3 +128,51 @@ Decoded: "the rat ate the tea"
 Round-trip verified: output matches original.
 ```
 
+## deflate_codes.c
+
+Encodes and decodes a short message with LSB-first variable-length codes, exactly as DEFLATE (gzip, zlib, PNG) works internally. Demonstrates the **LSB-first write → peek/skip decode round-trip**.
+
+The key difference from MSB-first codecs (MP3, JPEG): DEFLATE packs bits starting from the least-significant bit of each byte. The decoder uses `bs_peek_bits_lsb()` to inspect a window of bits without consuming them, matches against a prefix-free code table, and `bs_skip_bits_lsb()` advances by the matched code length.
+
+The code table assigns shorter codes to more frequent symbols:
+
+```
+ Code (LSB→)  Bits  Symbol
+────────────  ────  ──────
+ 0              1   'e'         (most frequent → shortest code)
+ 10             2   't'
+ 110            3   'a'
+ 1110           4   ' '         (space)
+ 11110          5   'h'
+ 111110         6   'r'
+ 111111         6   '\0'        (end-of-stream sentinel)
+```
+
+The message `"the rat ate the tea"` (19 ASCII bytes) encodes into 8 bytes on the wire — 42% of the original size.
+
+Sample output:
+
+```
+DEFLATE-style LSB-first coding demo
+====================================
+
+Message: "the rat ate the tea"
+
+Encoding:
+  Original:  19 bytes (ASCII)
+  Encoded:   8 bytes on wire
+  Ratio:     42%
+
+  Raw bytes: 3D F7 AD 5B AE E7 B2 1F
+
+Decoding (peek/skip, LSB-first):
+  [64 bits left] peek 6 bits = 0x3D → 't' (2 bits)
+  [62 bits left] peek 6 bits = 0x0F → 'h' (5 bits)
+  [57 bits left] peek 6 bits = 0x2E → 'e' (1 bits)
+  ...
+  [ 9 bits left] peek 6 bits = 0x3F → EOS (end-of-stream)
+
+Decoded: "the rat ate the tea"
+
+Round-trip verified: output matches original.
+```
