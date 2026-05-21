@@ -59,7 +59,7 @@ ALL_BINS     += $(EXAMPLES_BIN)
 
 # ---- Targets de compilacion ------------------------------------------------
 
-.PHONY: all debug release asan ubsan sanitize test test-all examples clean help
+.PHONY: all debug release asan ubsan sanitize test test-all examples clean fmt help
 
 all: debug
 
@@ -114,6 +114,9 @@ test-all: debug release sanitize
 
 clean:
 	rm -f $(ALL_BINS)
+
+fmt:
+	clang-format -i tests/*.c *.h examples/*.c        # formatear in-place
 
 # ---- Ayuda ------------------------------------------------------------------
 
