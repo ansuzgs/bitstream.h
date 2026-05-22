@@ -6,3 +6,7 @@ test_release
 examples/sensor_protocol
 examples/decode_mp3_header
 examples/huffman_decode
+examples/deflate_codes
+examples/deflate_block
+examples/fast_decode
+benchmark*

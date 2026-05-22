@@ -176,3 +176,89 @@ Decoded: "the rat ate the tea"
 
 Round-trip verified: output matches original.
 ```
+
+## deflate_block.c
+ 
+Encodes and decodes a DEFLATE-style uncompressed block (BTYPE=00). Demonstrates **LSB-first read/write**, **byte alignment**, and **zero-copy bulk byte transfer** — the three Phase 4 features working together in a realistic compression format scenario.
+ 
+A DEFLATE stored block mixes bit-aligned headers with byte-aligned data:
+ 
+```
+ Bits   Order   Field
+─────  ──────  ──────────────────────────────────────────────
+   1   LSB     BFINAL  (1 = last block)
+   2   LSB     BTYPE   (00 = no compression)
+        ────── byte boundary (bs_writer_align_lsb) ──────
+  16   LE      LEN     (number of literal bytes)
+  16   LE      NLEN    (one's complement of LEN)
+ LEN   bytes   literal data (bs_write_bytes / bs_read_bytes)
+─────
+```
+ 
+The encoder uses `bs_write_bits_lsb` for the header, `bs_writer_align_lsb` to pad to a byte boundary, and `bs_write_bytes` to bulk-copy the literal payload without passing each byte through the bit accumulator. The decoder mirrors this with `bs_reader_align_lsb` and `bs_read_bytes`.
+ 
+Sample output:
+ 
+```
+deflate_block — DEFLATE stored block (BTYPE=00)
+================================================
+ 
+Original:  "Hello, DEFLATE!" (15 bytes)
+ 
+Encoded block: 20 bytes on wire
+  Wire: 01 0F 00 F0 FF 48 65 6C 6C 6F 2C 20 44 45 46 4C 41 54 45 21
+ 
+  Layout:
+    Byte 0:    0x01  ← header (BFINAL=1, BTYPE=00) + 5 padding bits
+    Bytes 1-2: 0x0F 00  ← LEN = 15 (little-endian)
+    Bytes 3-4: 0xF0 FF  ← NLEN = 0xFFF0 (one's complement)
+    Bytes 5-19: literal data
+ 
+Decoded:
+  BFINAL:  1 (last block: yes)
+  LEN:     15
+  Payload: "Hello, DEFLATE!"
+ 
+Round-trip verified: decoded payload matches original.
+```
+ 
+## fast_decode.c
+ 
+Decodes a Huffman stream using both safe and **unchecked (fast-path)** functions, showing the performance pattern used by real codecs. The unchecked variants (`bs_peek_bits_unchecked`, `bs_skip_bits_unchecked`) eliminate all boundary checks — the caller guarantees preconditions are met, and in exchange the compiler generates tighter code for the inner loop.
+ 
+The program encodes a message, decodes it with both the safe and unchecked decoders, verifies both produce identical output, and prints a step-by-step trace of the fast-path decode showing the peek window and matched symbols.
+ 
+Sample output:
+ 
+```
+fast_decode — Huffman: safe vs unchecked (fast-path)
+====================================================
+ 
+Original: "the rat ate the tea" (19 bytes ASCII)
+ 
+Encoded:  8 bytes on wire
+  Wire: BC EF B5 DA 75 E7 4D F8
+  Ratio:  42% of original
+ 
+Decoded (safe):   "the rat ate the tea"
+ 
+Decoding with unchecked fast-path:
+  [ 64 bits left] peek 0x2F → 't'  (code=2, 2 bits)
+  [ 62 bits left] peek 0x3C → 'h'  (code=30, 5 bits)
+  [ 57 bits left] peek 0x1D → 'e'  (code=0, 1 bits)
+  [ 56 bits left] peek 0x3B → ' '  (code=14, 4 bits)
+  ...
+  [  9 bits left] peek 0x3F → sentinel (end)
+ 
+Decoded (fast):   "the rat ate the tea"
+ 
+Verified: both decoders match the original message.
+```
+ 
+
+
+
+
+
+
+
